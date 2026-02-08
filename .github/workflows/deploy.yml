@@ -28,12 +28,11 @@ jobs:
           node-version: '20'
           
       - name: Install dependencies
-        run: npm ci
+        run: npm install
         
       - name: Build
         run: npm run build
-        env:
-          BASE_URL: /open-dialogue-lab-cdb0ad0d/
+        env:          BASE_URL: /open-dialogue-lab-cdb0ad0d/
         
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
