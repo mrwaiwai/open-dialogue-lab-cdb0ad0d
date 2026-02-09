@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -12,18 +12,36 @@ const colorBorder: Record<string, string> = { red: 'border-option-red', orange: 
 const colorBg: Record<string, string> = { red: 'bg-option-red', orange: 'bg-option-orange', yellow: 'bg-option-yellow', green: 'bg-option-green' };
 const scoreColors: Record<string, string> = { red: 'score-red', orange: 'score-orange', yellow: 'score-yellow', green: 'score-green' };
 
+// Shuffle array with seed for consistency per question
+function shuffleOptions(options: Option[], seed: number): Option[] {
+  const shuffled = [...options];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor((Math.sin(seed + i) * 10000) % (i + 1));
+    const idx = j < 0 ? i + j : j;
+    [shuffled[i], shuffled[idx < 0 ? 0 : idx]] = [shuffled[idx < 0 ? 0 : idx], shuffled[i]];
+  }
+  return shuffled;
+}
+
 export default function GamePlay() {
   const navigate = useNavigate();
   const { selectedRole, selectedMode, selectedScenarios, currentQuestionIndex, totalScore, answers, answerQuestion, nextQuestion } = useGameStore();
   const [selectedOption, setSelectedOption] = useState<Option | null>(null);
   const [showReflection, setShowReflection] = useState(false);
 
+  const scenario = selectedScenarios[currentQuestionIndex];
+  
+  // Randomize options order per scenario (stable per question)
+  const shuffledOptions = useMemo(() => {
+    if (!scenario) return [];
+    return shuffleOptions(scenario.options, scenario.id * 1000 + currentQuestionIndex);
+  }, [scenario, currentQuestionIndex]);
+
   if (!selectedRole || !selectedMode || selectedScenarios.length === 0) {
     navigate('/');
     return null;
   }
 
-  const scenario = selectedScenarios[currentQuestionIndex];
   if (!scenario) { navigate('/results'); return null; }
 
   const isAnswered = selectedOption !== null;
@@ -105,7 +123,7 @@ export default function GamePlay() {
 
             {/* Options */}
             <div className="space-y-4">
-              {scenario.options.map((option) => {
+              {shuffledOptions.map((option, index) => {
                 const isSelected = selectedOption?.id === option.id;
                 const showDetails = isAnswered;
                 return (
@@ -125,7 +143,7 @@ export default function GamePlay() {
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <span className="glass-pill text-xs font-bold shrink-0 mt-0.5">{option.id}</span>
+                        <span className="glass-pill text-xs font-bold shrink-0 mt-0.5">{String.fromCharCode(65 + index)}</span>
                         <p className="text-sm leading-relaxed">「{option.text.replace(/[「」]/g, '')}」</p>
                       </div>
 
