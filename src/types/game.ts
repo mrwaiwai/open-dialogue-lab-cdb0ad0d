@@ -9,7 +9,7 @@ export interface Scenario {
 }
 
 export interface Option {
-  id: 'A' | 'B' | 'C';
+  id: 'A' | 'B' | 'C' | 'D';
   text: string;
   type: 'closed' | 'judgmental' | 'semi-open' | 'open';
   score: number;
@@ -23,7 +23,7 @@ export interface Option {
 
 export interface Answer {
   scenarioId: number;
-  selectedOptionId: 'A' | 'B' | 'C';
+  selectedOptionId: 'A' | 'B' | 'C' | 'D';
   score: number;
   type: string;
   category: string;
