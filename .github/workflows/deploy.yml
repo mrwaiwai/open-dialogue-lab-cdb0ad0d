@@ -32,7 +32,6 @@ jobs:
         
       - name: Build
         run: npm run build
-        env:          BASE_URL: /open-dialogue-lab-cdb0ad0d/
         
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
