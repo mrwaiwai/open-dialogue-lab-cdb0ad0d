@@ -12,13 +12,22 @@ const colorBorder: Record<string, string> = { red: 'border-option-red', orange: 
 const colorBg: Record<string, string> = { red: 'bg-option-red', orange: 'bg-option-orange', yellow: 'bg-option-yellow', green: 'bg-option-green' };
 const scoreColors: Record<string, string> = { red: 'score-red', orange: 'score-orange', yellow: 'score-yellow', green: 'score-green' };
 
-// Shuffle array with seed for consistency per question
+// Mulberry32 seeded PRNG for consistent yet well-distributed shuffles
+function mulberry32(seed: number) {
+  return () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
 function shuffleOptions(options: Option[], seed: number): Option[] {
+  const rng = mulberry32(seed);
   const shuffled = [...options];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor((Math.sin(seed + i) * 10000) % (i + 1));
-    const idx = j < 0 ? i + j : j;
-    [shuffled[i], shuffled[idx < 0 ? 0 : idx]] = [shuffled[idx < 0 ? 0 : idx], shuffled[i]];
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
   return shuffled;
 }
