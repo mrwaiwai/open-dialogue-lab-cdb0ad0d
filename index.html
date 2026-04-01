@@ -3,18 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="data:," />
     <title>開放式回應學習遊戲</title>
     <meta name="description" content="透過真實情境，學習如何運用開放式回應與孩子溝通，建立信任關係，促進有效對話。適合教師、家長、教練使用。" />
     <meta property="og:title" content="開放式回應學習遊戲" />
     <meta property="og:description" content="透過真實情境，提升與孩子溝通的技巧" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="open-dialogue-lab-root"></div>
+    <script>
+      (() => {
+        const host = window.location.hostname;
+        const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+        const isGitHubPages = host.endsWith('github.io');
+
+        window.openDialogueLabConfig = {
+          ...(window.openDialogueLabConfig || {}),
+          deepseekProxyUrl: '/api/deepseek',
+          deepseekProxyEnabled: !isLocalHost && !isGitHubPages,
+        };
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

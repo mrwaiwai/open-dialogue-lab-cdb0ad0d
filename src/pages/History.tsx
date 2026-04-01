@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useGameStore } from '@/store/gameStore';
 import FloatingShapes from '@/components/FloatingShapes';
+import { getSupervisorModeLabel } from '@/lib/aiSupervisor';
 
 const roleLabels = { teacher: '🎓 教師', parent: '🏠 家長', coach: '⚽ 教練' } as const;
 
@@ -36,10 +37,10 @@ export default function History() {
             <button onClick={() => navigate(-1)} className="glass-pill flex items-center gap-1 hover:shadow-glass">
               <ArrowLeft size={16} /> 返回
             </button>
-            <span className="text-sm text-muted-foreground">我嘅學習歷程</span>
+            <span className="text-sm text-muted-foreground">我嘅對話訓練歷程</span>
           </motion.div>
 
-          <h2 className="text-3xl font-bold mb-6">📊 我嘅學習歷程</h2>
+          <h2 className="text-3xl font-bold mb-6">📊 我嘅對話訓練歷程</h2>
 
           {/* Summary */}
           <div className="grid grid-cols-3 gap-4 mb-8">
@@ -71,8 +72,12 @@ export default function History() {
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{getGradeEmoji(g.score, g.maxScore)}</span>
                       <div>
-                        <p className="font-medium">{roleLabels[g.role]} · {g.mode} 題</p>
-                        <p className="text-xs text-muted-foreground">{new Date(g.date).toLocaleDateString('zh-HK')}</p>
+                        <p className="font-medium">
+                          {roleLabels[g.role]} · {g.mode} 題 · {g.practiceSelectionMode === 'custom' ? '自選' : '隨機'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(g.date).toLocaleDateString('zh-HK')} · {getSupervisorModeLabel(g.supervisorMode ?? 'local', g.supervisorModel)}
+                        </p>
                       </div>
                     </div>
                     <span className="font-bold">{g.score}/{g.maxScore}</span>

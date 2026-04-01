@@ -6,9 +6,9 @@ import { useGameStore } from '@/store/gameStore';
 import type { GameRole } from '@/types/game';
 
 const roles: { role: GameRole; icon: string; title: string; subtitle: string; desc: string; badge: string; glowColor: string }[] = [
-  { role: 'teacher', icon: '🎓', title: '教師', subtitle: '課室校園版', desc: '學習如何在課室環境中運用開放式回應，處理學生情緒、學習困難、人際衝突等場景，提升師生溝通效率', badge: '包含 20+ 課室情境', glowColor: 'rgba(0, 122, 255, 0.2)' },
-  { role: 'parent', icon: '🏠', title: '家長', subtitle: '家庭屋企版', desc: '透過日常家庭情境，包括親子衝突、情緒管理、手足爭執等，改善親子對話質素，建立信任與歸屬感', badge: '包含 20+ 家庭情境', glowColor: 'rgba(52, 199, 89, 0.2)' },
-  { role: 'coach', icon: '⚽', title: '教練', subtitle: '運動與遊戲治療版', desc: '在運動訓練與遊戲治療環境中，以開放式回應促進兒童情緒發展、挫折處理、社交互動技巧', badge: '包含 20+ 訓練情境', glowColor: 'rgba(255, 149, 0, 0.2)' },
+  { role: 'teacher', icon: '🎓', title: '教師', subtitle: '課室校園版', desc: '用 chat box 方式演練課室溝通，處理學生情緒、學習困難、人際衝突等高張力時刻', badge: '20+ 課室對話場景', glowColor: 'rgba(0, 122, 255, 0.2)' },
+  { role: 'parent', icon: '🏠', title: '家長', subtitle: '家庭屋企版', desc: '模擬日常親子對話，包括衝突、情緒崩潰、功課拉鋸等場景，練習更有安全感嘅回應', badge: '20+ 家庭對話場景', glowColor: 'rgba(52, 199, 89, 0.2)' },
+  { role: 'coach', icon: '⚽', title: '教練', subtitle: '運動與遊戲治療版', desc: '透過運動與團體互動場景，學習點樣回應挫敗、焦慮、分離感同衝突', badge: '20+ 訓練對話場景', glowColor: 'rgba(255, 149, 0, 0.2)' },
 ];
 
 const container = { hidden: {}, visible: { transition: { staggerChildren: 0.12 } } };
@@ -16,6 +16,8 @@ const item = {
   hidden: { opacity: 0, y: 20 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] as const } },
 };
+const stableHover = { scale: 1.015, boxShadow: '0 16px 42px rgba(31, 38, 135, 0.2)' };
+const stableTap = { scale: 0.992 };
 
 export default function RoleSelection() {
   const navigate = useNavigate();
@@ -43,7 +45,7 @@ export default function RoleSelection() {
             animate={{ opacity: 1, y: 0 }}
             className="text-3xl font-bold text-center mb-8"
           >
-            選擇你的身份
+            選擇你的訓練身份
           </motion.h2>
 
           <motion.div variants={container} initial="hidden" animate="visible" className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -51,10 +53,10 @@ export default function RoleSelection() {
               <motion.button
                 key={r.role}
                 variants={item}
-                whileHover={{ y: -6, boxShadow: `0 12px 40px 0 rgba(31,38,135,0.2), 0 0 40px ${r.glowColor}` }}
-                whileTap={{ scale: 0.97 }}
+                whileHover={{ ...stableHover, boxShadow: `0 16px 42px rgba(31, 38, 135, 0.2), 0 0 34px ${r.glowColor}` }}
+                whileTap={stableTap}
                 onClick={() => handleSelect(r.role)}
-                className="glass-card p-8 text-left transition-all"
+                className="glass-card p-8 text-left"
               >
                 <div className="text-5xl mb-4">{r.icon}</div>
                 <h3 className="text-xl font-bold mb-1">{r.title} <span className="text-base font-normal text-muted-foreground">- {r.subtitle}</span></h3>

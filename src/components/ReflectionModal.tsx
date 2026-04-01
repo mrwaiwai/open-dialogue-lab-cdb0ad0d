@@ -1,14 +1,20 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 interface ReflectionModalProps {
   isOpen: boolean;
-  onClose: () => void;
+  onClose: (text: string) => void;
   questionsDone: number;
 }
 
 export default function ReflectionModal({ isOpen, onClose, questionsDone }: ReflectionModalProps) {
   const [text, setText] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) {
+      setText('');
+    }
+  }, [isOpen]);
 
   return (
     <AnimatePresence>
@@ -46,7 +52,7 @@ export default function ReflectionModal({ isOpen, onClose, questionsDone }: Refl
             </div>
 
             <button
-              onClick={onClose}
+              onClick={() => onClose(text.trim())}
               className="glass-button w-full py-3 px-6 font-semibold text-foreground hover:shadow-glass-hover"
             >
               繼續遊戲

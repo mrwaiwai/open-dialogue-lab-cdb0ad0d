@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import FloatingShapes from '@/components/FloatingShapes';
+import { canUseDeepSeekSupervisor } from '@/lib/aiSupervisor';
+import { useGameStore } from '@/store/gameStore';
 
 const stagger = {
   hidden: {},
@@ -12,13 +14,16 @@ const fadeUp = {
 };
 
 const features = [
-  { icon: '🎯', title: '真實情境', desc: '基於日常互動設計' },
-  { icon: '📊', title: '即時反饋', desc: '了解溝通效果' },
-  { icon: '🏆', title: '個人化建議', desc: '獲得專屬改善方案' },
+  { icon: '💬', title: '多輪 Chat 互動', desc: '每題 3 輪來回練習回應' },
+  { icon: '🎭', title: '60+ 真實場景', desc: '案主狀態、背景、現場壓力更完整' },
+  { icon: '📊', title: '完結分析', desc: '回顧回應風格、修復能力與改善方向' },
 ];
 
 export default function Index() {
   const navigate = useNavigate();
+  const supervisorMode = useGameStore((state) => state.supervisorMode);
+  const deepseekApiKey = useGameStore((state) => state.deepseekApiKey);
+  const canStart = supervisorMode === 'local' || canUseDeepSeekSupervisor(deepseekApiKey);
 
   return (
     <div className="gradient-bg relative overflow-hidden">
@@ -32,16 +37,22 @@ export default function Index() {
         >
           <motion.div variants={fadeUp} className="text-6xl mb-4">💬</motion.div>
           <motion.h1 variants={fadeUp} className="text-4xl md:text-5xl font-bold mb-6 text-gradient">
-            開放式回應學習遊戲
+            開放式回應 Chat Lab
           </motion.h1>
 
           <motion.div variants={fadeUp} className="glass-card p-8 mb-8">
             <p className="text-xl font-medium mb-3">
-              透過真實情境，提升與孩子溝通的技巧
+              透過 chat box 對話訓練，提升與孩子溝通的技巧
             </p>
             <p className="text-muted-foreground">
-              學習如何運用開放式回應，建立信任關係，促進有效對話
+              用真實互動場景做 3 輪對話訓練，完成後即睇對話分析、修復節奏與個人化建議
             </p>
+          </motion.div>
+
+          <motion.div variants={fadeUp} className="mb-8 flex flex-col items-center gap-3">
+            {!canStart && (
+              <p className="text-sm text-amber-800">目前尚未讀取到 DeepSeek API key，所以暫時未能開始 AI 督導訓練。</p>
+            )}
           </motion.div>
 
           <motion.div variants={fadeUp} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -57,14 +68,16 @@ export default function Index() {
           <motion.div variants={fadeUp}>
             <button
               onClick={() => navigate('/role')}
+              disabled={!canStart}
               className="glass-button px-10 py-4 text-lg font-bold shadow-glass hover:shadow-glass-hover animate-glow"
               style={{
                 background: 'linear-gradient(135deg, hsl(211 100% 50% / 0.9), hsl(270 80% 60% / 0.9))',
                 color: 'white',
                 borderRadius: '1rem',
+                opacity: canStart ? 1 : 0.6,
               }}
             >
-              開始學習
+              開始進行開放式回應訓練
             </button>
           </motion.div>
 

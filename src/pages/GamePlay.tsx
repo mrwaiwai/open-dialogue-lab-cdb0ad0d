@@ -1,251 +1,504 @@
-import { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Bot, Layers3, LoaderCircle, MessageCircleReply, SendHorizontal, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 import { useGameStore } from '@/store/gameStore';
 import ReflectionModal from '@/components/ReflectionModal';
-import type { Option } from '@/types/game';
+import ConversationBubble from '@/components/ConversationBubble';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
+import { continueScenarioSessionWithSupervisor, getSupervisorModeLabel } from '@/lib/aiSupervisor';
+import {
+  SCENARIO_TURNS,
+  buildScenarioLens,
+  createScenarioSession,
+  getTurnStarterPrompts,
+} from '@/lib/conversationEngine';
+import type { ScenarioSession } from '@/types/game';
 
 const roleLabels = { teacher: '🎓 教師', parent: '🏠 家長', coach: '⚽ 教練' } as const;
-
-const colorBorder: Record<string, string> = { red: 'border-option-red', orange: 'border-option-orange', yellow: 'border-option-yellow', green: 'border-option-green' };
-const colorBg: Record<string, string> = { red: 'bg-option-red', orange: 'bg-option-orange', yellow: 'bg-option-yellow', green: 'bg-option-green' };
-const scoreColors: Record<string, string> = { red: 'score-red', orange: 'score-orange', yellow: 'score-yellow', green: 'score-green' };
-
-// Mulberry32 seeded PRNG for consistent yet well-distributed shuffles
-function mulberry32(seed: number) {
-  return () => {
-    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
-    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-
-function shuffleOptions(options: Option[], seed: number): Option[] {
-  const rng = mulberry32(seed);
-  const shuffled = [...options];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
+const typeLabels = {
+  open: '開放式',
+  'semi-open': '半開放式',
+  judgmental: '判斷式',
+  closed: '封閉式',
+} as const;
 
 export default function GamePlay() {
   const navigate = useNavigate();
-  const { selectedRole, selectedMode, selectedScenarios, currentQuestionIndex, totalScore, answers, answerQuestion, nextQuestion } = useGameStore();
-  const [selectedOption, setSelectedOption] = useState<Option | null>(null);
+  const {
+    selectedRole,
+    selectedMode,
+    selectedScenarios,
+    currentQuestionIndex,
+    totalScore,
+    answers,
+    answerQuestion,
+    nextQuestion,
+    addReflection,
+    supervisorMode,
+    deepseekApiKey,
+    deepseekModel,
+  } = useGameStore();
+
+  const [draft, setDraft] = useState('');
   const [showReflection, setShowReflection] = useState(false);
+  const [session, setSession] = useState<ScenarioSession | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showExpandedDetails, setShowExpandedDetails] = useState(false);
+  const transcriptRef = useRef<HTMLDivElement | null>(null);
 
   const scenario = selectedScenarios[currentQuestionIndex];
-  
-  // Randomize options order per scenario (stable per question)
-  const shuffledOptions = useMemo(() => {
-    if (!scenario) return [];
-    return shuffleOptions(scenario.options, scenario.id * 1000 + currentQuestionIndex);
-  }, [scenario, currentQuestionIndex]);
+  const currentAnswer = useMemo(
+    () => answers.find((answer) => answer.scenarioId === scenario?.id),
+    [answers, scenario?.id],
+  );
+  const scenarioLens = useMemo(() => (scenario ? buildScenarioLens(scenario) : null), [scenario]);
+
+  useEffect(() => {
+    if (!scenario || currentAnswer) return;
+    setSession(createScenarioSession(scenario));
+  }, [scenario, currentAnswer]);
+
+  useEffect(() => {
+    setDraft('');
+  }, [scenario?.id]);
+
+  const conversation = useMemo(
+    () => currentAnswer?.transcript ?? session?.transcript ?? [],
+    [currentAnswer?.transcript, session?.transcript],
+  );
+  const currentTurn = currentAnswer?.turnCount ?? session?.currentTurn ?? 0;
+  const starterPrompts = currentAnswer ? [] : getTurnStarterPrompts(session?.currentTurn ?? 0);
+
+  useEffect(() => {
+    const viewport = transcriptRef.current;
+    if (!viewport) return;
+    viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
+  }, [conversation]);
 
   if (!selectedRole || !selectedMode || selectedScenarios.length === 0) {
     navigate('/');
     return null;
   }
 
-  if (!scenario) { navigate('/results'); return null; }
+  if (!scenario || !scenarioLens) {
+    navigate('/results');
+    return null;
+  }
 
-  const isAnswered = selectedOption !== null;
-  const progress = ((currentQuestionIndex) / selectedMode) * 100;
+  const answeredCount = currentQuestionIndex + (currentAnswer ? 1 : 0);
+  const progress = (answeredCount / selectedMode) * 100;
 
-  const handleSelect = (option: Option) => {
-    if (isAnswered) return;
-    setSelectedOption(option);
-    answerQuestion({
-      scenarioId: scenario.id,
-      selectedOptionId: option.id,
-      score: option.score,
-      type: option.type,
-      category: scenario.category,
-    });
+  const handleSubmit = async () => {
+    const text = draft.trim();
+    if (!text || !session || currentAnswer || isSubmitting) return;
+
+    setIsSubmitting(true);
+
+    try {
+      const result = await continueScenarioSessionWithSupervisor(scenario, session, text, {
+        mode: supervisorMode,
+        deepseekApiKey,
+        deepseekModel,
+      });
+
+      setSession(result.session);
+      setDraft('');
+
+      if (result.warning) {
+        toast.warning(result.warning);
+      }
+
+      if (result.answer) {
+        answerQuestion(result.answer);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleNext = () => {
-    const nextIdx = currentQuestionIndex + 1;
-    if (nextIdx >= selectedMode) {
+    const nextIndex = currentQuestionIndex + 1;
+
+    if (nextIndex >= selectedMode) {
       navigate('/results');
       return;
     }
-    // Show reflection every 5 questions
-    if (nextIdx % 5 === 0 && nextIdx < selectedMode) {
+
+    if (nextIndex % 5 === 0) {
       setShowReflection(true);
-    } else {
-      setSelectedOption(null);
-      nextQuestion();
+      return;
     }
+
+    setSession(null);
+    nextQuestion();
   };
 
-  const handleReflectionClose = () => {
+  const handleReflectionClose = (text: string) => {
+    if (text) addReflection(text);
     setShowReflection(false);
-    setSelectedOption(null);
+    setSession(null);
     nextQuestion();
   };
 
   return (
     <div className="gradient-bg-subtle relative min-h-screen">
-      {/* Top Bar */}
-      <div className="sticky top-0 z-40 glass-card px-4 py-3 flex items-center justify-between" style={{ borderRadius: 0, borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}>
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="p-1"><ArrowLeft size={20} /></button>
-          <span className="glass-pill text-xs">{roleLabels[selectedRole]}</span>
+      <div className="sticky top-0 z-40 border-b border-white/35 bg-white/60 px-4 py-3 backdrop-blur-xl">
+        <div className="app-shell flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate('/mode')} className="glass-pill flex items-center gap-1 hover:shadow-glass">
+              <ArrowLeft size={16} />
+              返回
+            </button>
+            <span className="glass-pill text-xs">{roleLabels[selectedRole]}</span>
+          </div>
+          <div className="flex items-center gap-3 text-sm sm:gap-4">
+            <span className="font-medium">
+              場景 {Math.min(currentQuestionIndex + 1, selectedMode)}/{selectedMode}
+            </span>
+            <span className="font-bold text-gradient">{totalScore} 分</span>
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-sm">
-          <span className="font-medium">{currentQuestionIndex + 1}/{selectedMode}</span>
-          <span className="font-bold text-gradient">{totalScore} 分</span>
-        </div>
-      </div>
-
-      {/* Progress Bar */}
-      <div className="h-1 bg-muted">
-        <motion.div
-          className="h-full progress-gradient"
-          initial={{ width: 0 }}
-          animate={{ width: `${progress}%` }}
-          transition={{ duration: 0.5, ease: 'easeInOut' }}
-        />
-      </div>
-
-      <div className="max-w-3xl mx-auto px-4 py-6 pb-24">
-        <AnimatePresence mode="wait">
+        <div className="app-shell mt-3 h-2 overflow-hidden rounded-full bg-white/50">
           <motion.div
-            key={scenario.id}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* Scenario Card */}
-            <div className="glass-card p-6 mb-6">
-              <span className="glass-pill text-xs mb-3 inline-block">{scenario.category}</span>
-              <h2 className="text-xl font-bold mb-3">📖 {scenario.title}</h2>
-              <p className="leading-relaxed mb-4">{scenario.description}</p>
-              <p className="text-sm text-muted-foreground italic">💭 背景環境：{scenario.context}</p>
+            className="h-full progress-gradient"
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            transition={{ duration: 0.35, ease: 'easeInOut' }}
+          />
+        </div>
+      </div>
+
+      <div className="app-shell py-5">
+        <div className="mb-5 flex justify-center">
+          <label className="glass-pill inline-flex cursor-pointer items-center gap-3 px-5 py-3 text-sm font-semibold text-slate-700">
+            <Checkbox
+              checked={showExpandedDetails}
+              onCheckedChange={(checked) => setShowExpandedDetails(Boolean(checked))}
+              className="h-5 w-5 rounded-md border-sky-300 data-[state=checked]:bg-sky-500"
+            />
+            展開完整個案背景與督導詳解
+          </label>
+        </div>
+
+        <div className={`grid gap-5 ${showExpandedDetails ? 'lg:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] lg:items-start xl:gap-6' : ''}`}>
+        <section className="order-1 glass-card flex min-h-[68vh] flex-col overflow-hidden lg:order-2 lg:min-h-[78vh]">
+          <div className="border-b border-white/35 px-4 py-4 sm:px-5 sm:py-5 lg:px-6">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div className="space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="glass-pill text-xs">{scenario.category}</span>
+                  <span className="rounded-full bg-slate-900/90 px-3 py-1 text-xs font-semibold text-white">
+                    {currentAnswer ? '本題已完成' : `第 ${currentTurn + 1}/${SCENARIO_TURNS} 輪進行中`}
+                  </span>
+                </div>
+
+                <div className="xl:hidden">
+                  <p className="section-kicker">場景速讀</p>
+                  <h2 className="mt-2 text-2xl font-bold leading-tight">{scenario.title}</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{scenario.description}</p>
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold">Chat Dialogue Lab</p>
+                  <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                    {currentAnswer
+                      ? `已完成 ${currentAnswer.turnCount}/${SCENARIO_TURNS} 輪對話，下面係你今題的整理分析。`
+                      : `正在進行第 ${currentTurn + 1}/${SCENARIO_TURNS} 輪，試住用自然、真實的語氣接住對方。`}
+                  </p>
+                </div>
+              </div>
+
+              {currentAnswer ? (
+                <div className="rounded-[1.1rem] bg-emerald-500/12 px-4 py-3 text-sm font-semibold text-emerald-800">
+                  最終判讀：{typeLabels[currentAnswer.type]} · {currentAnswer.score}/10 分
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="rounded-[1.1rem] bg-slate-900 px-4 py-3 text-sm font-semibold text-white">
+                    目前重點：{scenarioLens.turnGoals[currentTurn]?.title}
+                  </div>
+                  <div className="rounded-[1.1rem] bg-white/75 px-4 py-3 text-xs font-semibold text-slate-700">
+                    <span className="inline-flex items-center gap-2">
+                      <Bot size={14} />
+                      {getSupervisorModeLabel(supervisorMode, deepseekModel)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Options */}
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:hidden">
+              <div className="nested-panel px-4 py-3">
+                <p className="section-kicker">隱藏需要提示</p>
+                <p className="mt-2 text-sm leading-relaxed">{scenarioLens.caseBrief.hiddenNeed}</p>
+              </div>
+              <div className="nested-panel px-4 py-3">
+                <p className="section-kicker">教練焦點</p>
+                <p className="mt-2 text-sm leading-relaxed">
+                  {currentAnswer ? currentAnswer.feedback.summary : scenarioLens.turnGoals[currentTurn]?.description}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div ref={transcriptRef} className="chat-scroll flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 lg:min-h-[52vh] lg:px-6">
             <div className="space-y-4">
-              {shuffledOptions.map((option, index) => {
-                const isSelected = selectedOption?.id === option.id;
-                const showDetails = isAnswered;
-                return (
-                  <motion.div
-                    key={option.id}
-                    layout
-                    whileHover={!isAnswered ? { y: -2, boxShadow: '0 12px 40px 0 rgba(31,38,135,0.2)' } : {}}
-                    whileTap={!isAnswered ? { scale: 0.98 } : {}}
-                  >
-                    <button
-                      onClick={() => handleSelect(option)}
-                      disabled={isAnswered}
-                      className={`glass-card w-full text-left p-5 transition-all ${
-                        isAnswered && !isSelected ? 'opacity-50' : ''
-                      } ${isAnswered && isSelected ? colorBorder[option.color] : ''} ${
-                        !isAnswered ? 'cursor-pointer' : 'cursor-default'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="glass-pill text-xs font-bold shrink-0 mt-0.5">{String.fromCharCode(65 + index)}</span>
-                        <p className="text-sm leading-relaxed">「{option.text.replace(/[「」]/g, '')}」</p>
-                      </div>
-
-                      {/* Expanded feedback */}
-                      <AnimatePresence>
-                        {showDetails && isSelected && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                            className="overflow-hidden"
-                          >
-                            <div className="mt-4 pt-4 border-t border-border/50 space-y-4">
-                              {/* Child Reaction */}
-                              <div className={`${colorBg[option.color]} rounded-2xl p-4`}>
-                                <p className="text-sm font-semibold mb-1">👶 小朋友的反應</p>
-                                <p className="text-3xl mb-2">{option.childReactionEmoji}</p>
-                                <p className="text-sm">{option.childReaction}</p>
-                              </div>
-
-                              {/* Explanation */}
-                              <div>
-                                <p className="text-sm font-semibold mb-2">📚 專業分析</p>
-                                <span className={`glass-pill text-xs ${scoreColors[option.color]}`}>
-                                  {option.responsePattern}
-                                </span>
-                                <p className="text-sm mt-2">{option.explanation}</p>
-                                {option.explanationPoints.length > 0 && (
-                                  <ul className="mt-2 space-y-1">
-                                    {option.explanationPoints.map((pt, i) => (
-                                      <li key={i} className="text-sm text-muted-foreground flex gap-2">
-                                        <span>•</span> {pt}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                )}
-                              </div>
-
-                              {/* Score */}
-                              <motion.div
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
-                                className={`inline-block glass-pill font-bold ${scoreColors[option.color]}`}
-                              >
-                                +{option.score} 分
-                              </motion.div>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-
-                      {/* Show brief feedback for non-selected options */}
-                      {showDetails && !isSelected && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} className="mt-3 pt-3 border-t border-border/30">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-lg`}>{option.childReactionEmoji}</span>
-                            <span className={`glass-pill text-xs ${scoreColors[option.color]}`}>{option.responsePattern} · +{option.score} 分</span>
-                          </div>
-                        </motion.div>
-                      )}
-                    </button>
-                  </motion.div>
-                );
-              })}
+              {conversation.map((message) => (
+                <ConversationBubble key={message.id} message={message} expanded={showExpandedDetails} />
+              ))}
             </div>
+          </div>
 
-            {/* Next Button */}
-            <AnimatePresence>
-              {isAnswered && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.4 }}
-                  className="text-center mt-8"
-                >
+          <div className="border-t border-white/35 bg-white/45 px-4 py-4 sm:px-5 lg:px-6">
+            {!currentAnswer ? (
+              <div className="space-y-4">
+                <div className="grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                  <div className="rounded-[1.5rem] border border-sky-200/70 bg-sky-50/80 p-4">
+                    <p className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-sky-700">教練雷達</p>
+                    <p className="text-sm leading-relaxed text-sky-950">
+                      {session?.latestCoachHint ?? scenarioLens.turnGoals[currentTurn]?.description}
+                    </p>
+                  </div>
+
+                  <div className="nested-panel px-4 py-4">
+                    <p className="section-kicker">快速起手式</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {starterPrompts.map((prompt) => (
+                        <button
+                          key={prompt}
+                          onClick={() => setDraft((current) => (current ? `${current}\n${prompt}` : prompt))}
+                          disabled={isSubmitting}
+                          className="rounded-full border border-white/60 bg-white/75 px-3 py-1.5 text-xs font-medium transition hover:bg-white"
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px] lg:items-end">
+                  <div>
+                    <Textarea
+                      value={draft}
+                      disabled={isSubmitting}
+                      onChange={(event) => setDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && !event.shiftKey && !isSubmitting) {
+                          event.preventDefault();
+                          handleSubmit();
+                        }
+                      }}
+                      placeholder="輸入你這一輪會怎樣回應對方..."
+                      className="min-h-[120px] resize-none border-white/60 bg-white/85 text-sm shadow-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                    />
+                    <p className="mt-2 text-xs text-muted-foreground">按 Enter 送出這一輪，Shift + Enter 換行</p>
+                  </div>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={!draft.trim() || isSubmitting}
+                    className="glass-button inline-flex w-full items-center justify-center gap-2 px-5 py-3 font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-[120px]"
+                  >
+                    {isSubmitting ? <LoaderCircle size={16} className="animate-spin" /> : <SendHorizontal size={16} />}
+                    {isSubmitting ? 'AI 督導分析緊...' : `送出第 ${currentTurn + 1} 輪`}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-[1.75rem] border border-emerald-200/70 bg-emerald-50/80 p-4">
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-emerald-800">
+                    <MessageCircleReply size={16} />
+                    本題 3 輪對話已完成
+                  </div>
+                  <p className="text-sm leading-relaxed text-emerald-900">{currentAnswer.feedback.summary}</p>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-3">
+                  {currentAnswer.turnAnalyses.map((turn) => (
+                    <div key={turn.turn} className="nested-panel p-4">
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">第 {turn.turn} 輪</p>
+                          <p className="mt-1 text-sm font-semibold">
+                            {typeLabels[turn.type]} · {turn.score}/10
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-white/75 px-3 py-1 text-xs font-medium text-muted-foreground">
+                          {turn.childReactionEmoji} 對方接續
+                        </span>
+                      </div>
+                      <p className="mb-3 text-sm leading-relaxed text-muted-foreground">{turn.coachHint}</p>
+                      <div className="space-y-2">
+                        {turn.sentenceAnalyses.map((sentence) => (
+                          <div key={`${turn.turn}-${sentence.index}`} className="rounded-xl bg-white/78 px-3 py-3 text-sm leading-relaxed">
+                            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                              第 {sentence.index} 句
+                            </p>
+                            <p className="mt-1 font-medium text-foreground/90">{sentence.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid gap-3 xl:grid-cols-2">
+                  <div className="nested-panel p-4">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">這題亮點</p>
+                    <ul className="space-y-2 text-sm leading-relaxed">
+                      {currentAnswer.feedback.strengths.map((item) => (
+                        <li key={item}>• {item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="nested-panel p-4">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">下一題可以帶住</p>
+                    <ul className="space-y-2 text-sm leading-relaxed">
+                      {currentAnswer.feedback.risks.map((item) => (
+                        <li key={item}>• {item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-slate-900 px-4 py-4 text-white">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-white/60">最後可以咁回應</p>
+                  <p className="text-sm leading-relaxed">「{currentAnswer.feedback.suggestedResponse}」</p>
+                </div>
+
+                <div className="flex justify-end">
                   <button
                     onClick={handleNext}
-                    className="glass-button px-8 py-3 font-semibold shadow-glass hover:shadow-glass-hover"
+                    className="glass-button w-full px-6 py-3 font-semibold shadow-glass hover:shadow-glass-hover sm:w-auto"
                     style={{
-                      background: 'linear-gradient(135deg, hsl(211 100% 50% / 0.9), hsl(270 80% 60% / 0.9))',
+                      background: 'linear-gradient(135deg, hsl(211 100% 50% / 0.92), hsl(157 70% 42% / 0.92))',
                       color: 'white',
                       borderRadius: '1rem',
                     }}
                   >
-                    {currentQuestionIndex + 1 >= selectedMode ? '查看結果' : '下一題 →'}
+                    {currentQuestionIndex + 1 >= selectedMode ? '查看總分析' : '下一個場景'}
                   </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        </AnimatePresence>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {showExpandedDetails ? (
+          <aside className="order-2 space-y-4 lg:order-1 lg:sticky lg:top-24">
+          <div className="glass-card p-5 sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+              <span className="glass-pill text-xs">{scenario.category}</span>
+              <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-semibold text-muted-foreground">
+                {SCENARIO_TURNS} 輪情境模擬
+              </span>
+            </div>
+
+            <p className="section-kicker">場景 brief</p>
+            <h2 className="mt-2 text-2xl font-bold leading-tight">{scenario.title}</h2>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{scenario.description}</p>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <div className="metric-panel px-4 py-4">
+                <p className="section-kicker">角色目標</p>
+                <p className="mt-2 text-sm leading-relaxed">{scenarioLens.practiceGoal}</p>
+              </div>
+              <div className="metric-panel px-4 py-4">
+                <p className="section-kicker">教練焦點</p>
+                <p className="mt-2 text-sm leading-relaxed">{scenarioLens.coachFocus}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card p-5 sm:p-6">
+            <p className="mb-4 flex items-center gap-2 text-sm font-semibold">
+              <Sparkles size={16} />
+              個案現場資訊
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <p className="mb-2 section-kicker">當下狀態</p>
+                <div className="space-y-2">
+                  {scenarioLens.caseBrief.presentingState.map((item, index) => (
+                    <div key={`${scenario.id}-present-${index}`} className="nested-panel px-4 py-3 text-sm leading-relaxed">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 section-kicker">現場壓力</p>
+                <div className="space-y-2">
+                  {scenarioLens.caseBrief.scenePressure.map((item, index) => (
+                    <div key={`${scenario.id}-pressure-${index}`} className="nested-panel px-4 py-3 text-sm leading-relaxed">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="glass-card p-5 sm:p-6">
+            <div className="space-y-4">
+              <div>
+                <p className="mb-2 section-kicker">你已知的背景</p>
+                <div className="space-y-2">
+                  {scenarioLens.caseBrief.backgroundClues.map((item, index) => (
+                    <div key={`${scenario.id}-background-${index}`} className="nested-panel px-4 py-3 text-sm leading-relaxed">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 section-kicker">隱藏需要提示</p>
+                <p className="nested-panel px-4 py-3 text-sm leading-relaxed">{scenarioLens.caseBrief.hiddenNeed}</p>
+              </div>
+
+              <div>
+                <p className="mb-3 flex items-center gap-2 text-sm font-semibold">
+                  <Layers3 size={16} />
+                  三輪目標
+                </p>
+                <div className="space-y-3">
+                  {scenarioLens.turnGoals.map((goal, index) => {
+                    const isActive = !currentAnswer && index === currentTurn;
+                    const isDone = currentAnswer ? index < currentAnswer.turnCount : index < currentTurn;
+
+                    return (
+                      <div
+                        key={goal.title}
+                        className={`nested-panel px-4 py-4 text-sm leading-relaxed ${
+                          isActive ? 'ring-2 ring-sky-400/35' : ''
+                        }`}
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-3">
+                          <p className="font-semibold">
+                            {index + 1}. {goal.title}
+                          </p>
+                          <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-muted-foreground">
+                            {isDone ? '已完成' : isActive ? '進行中' : '待練習'}
+                          </span>
+                        </div>
+                        <p className="text-muted-foreground">{goal.description}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+          </aside>
+        ) : null}
+        </div>
       </div>
 
       <ReflectionModal

@@ -1,73 +1,91 @@
-# Welcome to your Lovable project
+# Open Dialogue Lab
 
-## Project info
+A React + Vite communication training web app.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Local development
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+## Build
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+npm run build
+```
 
-**Use GitHub Codespaces**
+## Safe public deployment
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+For a public site with AI enabled, deploy through Vercel and keep the DeepSeek key on the server.
 
-## What technologies are used for this project?
+Why not GitHub Pages for the AI version:
 
-This project is built with:
+- GitHub Pages is static only and cannot safely hide `DEEPSEEK_API_KEY`
+- exposing a `VITE_...` key in frontend code would let anyone use your paid API
+- this repo now includes a serverless proxy at `api/deepseek.ts` for Vercel
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### 1. Push the repo to GitHub
 
-## How can I deploy this project?
+This repo already has a GitHub remote:
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- `https://github.com/mrwaiwai/open-dialogue-lab-cdb0ad0d.git`
 
-## Can I connect a custom domain to my Lovable project?
+### 2. Deploy on Vercel
 
-Yes, you can!
+The project is already linked to Vercel locally via `.vercel/project.json`.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Set this environment variable in Vercel:
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- `DEEPSEEK_API_KEY`
+
+Then deploy from the connected GitHub repo. The frontend will call `/api/deepseek`, so the secret stays on the server.
+
+### 3. Expected public URL
+
+After Vercel finishes deployment, you will get a public URL like:
+
+- `https://open-dialogue-lab-cdb0ad0d.vercel.app`
+
+You can later attach a custom domain if needed.
+
+## Vercel CLI deploy (optional)
+
+```bash
+vercel deploy -y
+```
+
+For production deploy:
+
+```bash
+vercel deploy --prod -y
+```
+
+## GitHub Pages
+
+There is still a GitHub Pages workflow in `.github/workflows/deploy.yml`, but it is manual-only now.
+Use it only for a static fallback build without AI secret handling.
+
+## WordPress one-click upload package
+
+Build and create uploadable plugin zip:
+
+```bash
+npm run build:release
+```
+
+Output file:
+
+- `open-dialogue-lab-wordpress.zip`
+
+### WordPress usage
+
+1. Go to `Plugins` -> `Add New Plugin` -> `Upload Plugin`.
+2. Upload `open-dialogue-lab-wordpress.zip` and activate it.
+3. Add shortcode `[open_dialogue_lab]` in any page/post.
+
+## Notes
+
+- The app uses hash routing for easier static hosting and WordPress embedding.
+- Public AI deployment should use the Vercel proxy instead of a client-side `VITE_DEEPSEEK_API_KEY`.
+- Template-specific dependencies and branding references have been removed.
