@@ -126,10 +126,10 @@ export function canUseDeepSeekSupervisor(apiKey: string) {
 
 export function getSupervisorModeLabel(mode: SupervisorMode, model?: SupervisorModel | null) {
   if (mode === 'deepseek') {
-    return model === 'deepseek-reasoner' ? 'DeepSeek AI 督導 · 推理模式' : 'DeepSeek AI 督導';
+    return model === 'deepseek-reasoner' ? '互動分析模式 · 深入版' : '互動分析模式';
   }
 
-  return '本地規則督導';
+  return '基本分析模式';
 }
 
 function buildPromptHistory(session: ScenarioSession) {
@@ -257,7 +257,7 @@ async function callDeepSeek(
       asString(data?.error) ||
       asString(asObject(data?.error)?.message) ||
       asString(data?.message) ||
-      'DeepSeek API 暫時未能處理這次請求。';
+      '系統暫時未能處理這次請求。';
     throw new Error(message);
   }
 
@@ -364,7 +364,7 @@ export async function continueScenarioSessionWithSupervisor(
   if (!canUseDeepSeekSupervisor(options.deepseekApiKey)) {
     return {
       ...continueScenarioSession(scenario, session, responseText),
-      warning: '未設定 DeepSeek API key，所以這一輪已改用本地規則分析。',
+      warning: '系統設定未完成，所以這一輪已改用基本分析。',
     };
   }
 
@@ -398,7 +398,7 @@ export async function continueScenarioSessionWithSupervisor(
     }
 
     if (!rawResponse) {
-      throw new Error('DeepSeek 未有回傳可解析的 JSON 內容。');
+      throw new Error('系統未有回傳可解析內容。');
     }
 
     const normalized = normalizeSupervisorTurnPayload(rawResponse, scenario, responseText, turn, lens);
@@ -410,11 +410,11 @@ export async function continueScenarioSessionWithSupervisor(
     });
   } catch (error) {
     const fallback = continueScenarioSession(scenario, session, responseText);
-    const message = error instanceof Error ? error.message : 'DeepSeek 督導暫時未能回應。';
+    const message = error instanceof Error ? error.message : '互動分析暫時未能回應。';
 
     return {
       ...fallback,
-      warning: `DeepSeek 督導暫時未能回應，已自動改用本地規則分析。${message}`,
+      warning: `互動分析暫時未能回應，已自動改用基本分析。${message}`,
     };
   }
 }

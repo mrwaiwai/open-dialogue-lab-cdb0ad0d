@@ -17,21 +17,21 @@ import type { SupervisorMode, SupervisorModel } from '@/types/game';
 const modeCards: { mode: SupervisorMode; title: string; desc: string; icon: typeof Settings2 }[] = [
   {
     mode: 'local',
-    title: '本地規則督導',
+    title: '基本分析模式',
     desc: '速度快，離線可用，但回饋會較模板化。',
     icon: Settings2,
   },
   {
     mode: 'deepseek',
-    title: 'DeepSeek AI 督導',
-    desc: '用 AI 做督導與案主回應，回饋會更自然同貼近真人。',
+    title: '互動分析模式',
+    desc: '回應會更自然，逐句拆解與總結也會更貼近真實互動。',
     icon: BrainCircuit,
   },
 ];
 
 const models: { model: SupervisorModel; title: string; desc: string }[] = [
-  { model: 'deepseek-chat', title: 'deepseek-chat', desc: '較快，適合日常多輪互動訓練。' },
-  { model: 'deepseek-reasoner', title: 'deepseek-reasoner', desc: '分析更深，但速度較慢。' },
+  { model: 'deepseek-chat', title: '標準分析', desc: '速度較快，適合日常多輪互動訓練。' },
+  { model: 'deepseek-reasoner', title: '深入分析', desc: '分析更深，但速度較慢。' },
 ];
 
 export default function SupervisorSettingsDialog() {
@@ -64,7 +64,7 @@ export default function SupervisorSettingsDialog() {
             </div>
             <DialogTitle className="text-2xl">設定督導模式</DialogTitle>
             <DialogDescription className="text-sm leading-relaxed">
-              你而家可以繼續用本地規則，或者切去 DeepSeek 做 AI 督導，讓個案回應、逐句分析同教學更似真人。
+              你而家可以繼續用基本分析，或者切去更自然的互動分析模式，讓個案回應、逐句分析同教學更貼近真人。
             </DialogDescription>
           </DialogHeader>
 
@@ -102,9 +102,9 @@ export default function SupervisorSettingsDialog() {
             <div className="space-y-4">
               <div className="nested-panel p-4 text-sm leading-relaxed">
                 {hasServerProxy ? (
-                  <p>已偵測到網站伺服器代理。這個頁面可以直接經網站呼叫 DeepSeek，唔使把 API key 放入瀏覽器。</p>
+                  <p>已偵測到網站伺服器代理。這個頁面可以直接經網站服務處理分析請求，唔使把服務金鑰放入瀏覽器。</p>
                 ) : (
-                  <p>目前會由瀏覽器直接呼叫 DeepSeek API。API key 只會儲存在你而家這個瀏覽器，方便測試，但正式公開部署仍建議改成 server proxy。</p>
+                  <p>目前會由瀏覽器直接發送分析請求。服務金鑰只會儲存在你而家這個瀏覽器，方便測試，但正式公開部署仍建議改成 server proxy。</p>
                 )}
               </div>
 
@@ -132,7 +132,7 @@ export default function SupervisorSettingsDialog() {
                 <div className="space-y-2">
                   <label className="inline-flex items-center gap-2 text-sm font-semibold">
                     <KeyRound size={15} />
-                    DeepSeek API Key
+                    服務金鑰
                   </label>
                   <Input
                     type="password"
@@ -142,13 +142,13 @@ export default function SupervisorSettingsDialog() {
                     className="h-11 rounded-[1rem] border-white/55 bg-white/80"
                   />
                   <p className="text-xs leading-relaxed text-muted-foreground">
-                    如你只係本機試用，直接貼上 DeepSeek key 就可以。之後開始訓練時，系統會用官方 `chat/completions` API 做督導分析。
+                    如你只係本機試用，直接貼上服務金鑰就可以。之後開始訓練時，系統會用分析服務做逐句拆解與回應整理。
                   </p>
                 </div>
               )}
 
               <div className="rounded-[1.2rem] bg-slate-900 px-4 py-3 text-sm text-white">
-                {aiReady ? 'AI 督導已經可用。開始練習後，逐句分析、個案回應同最後總結都會交俾 DeepSeek 處理。' : '請先輸入 DeepSeek API key，之後先可以啟用 AI 督導。'}
+                {aiReady ? '互動分析已經可用。開始練習後，逐句分析、個案回應同最後總結都會一併處理。' : '請先輸入服務金鑰，之後先可以啟用互動分析。'}
               </div>
             </div>
           )}

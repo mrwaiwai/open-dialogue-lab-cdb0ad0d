@@ -303,7 +303,7 @@ export default function GamePlay() {
                     className="glass-button inline-flex w-full items-center justify-center gap-2 px-5 py-3 font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-[120px]"
                   >
                     {isSubmitting ? <LoaderCircle size={16} className="animate-spin" /> : <SendHorizontal size={16} />}
-                    {isSubmitting ? 'AI 督導分析緊...' : `送出第 ${currentTurn + 1} 輪`}
+                    {isSubmitting ? '整理回應中...' : `送出第 ${currentTurn + 1} 輪`}
                   </button>
                 </div>
               </div>

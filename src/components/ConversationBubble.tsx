@@ -46,7 +46,7 @@ function renderAnalysisContent(message: ConversationMessage, expanded: boolean) 
     return (
       <div className="space-y-3">
         <div className="analysis-card-summary">
-          <p className="analysis-card-kicker">AI 督導觀察</p>
+          <p className="analysis-card-kicker">互動觀察</p>
           <p className="mt-2 text-base font-semibold leading-relaxed text-slate-900 md:text-[1.05rem]">{summary}</p>
         </div>
         <div className="analysis-card-hint">
@@ -65,7 +65,7 @@ function renderAnalysisContent(message: ConversationMessage, expanded: boolean) 
         <div className="analysis-card-compact">
           <p className="analysis-card-kicker">逐句拆解已收起</p>
           <p className="mt-2 text-sm leading-relaxed text-slate-700 md:text-base">
-            AI 已替你整理 {blocks.length} 句亮點與問題。勾選上方選項後，就會展開完整逐句分析與改寫建議。
+            系統已替你整理 {blocks.length} 句亮點與問題。勾選上方選項後，就會展開完整逐句分析與改寫建議。
           </p>
         </div>
       );
@@ -101,7 +101,7 @@ function renderAnalysisContent(message: ConversationMessage, expanded: boolean) 
   if (isRewrite) {
     return (
       <div className="analysis-card-rewrite">
-        <p className="analysis-card-kicker">AI 示範回應</p>
+        <p className="analysis-card-kicker">示範回應</p>
         <p className="mt-3 text-base font-semibold leading-relaxed text-slate-950 md:text-[1.08rem]">「{message.text}」</p>
       </div>
     );
