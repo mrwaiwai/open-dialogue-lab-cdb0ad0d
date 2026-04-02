@@ -124,6 +124,11 @@ export function canUseDeepSeekSupervisor(apiKey: string) {
   return Boolean((runtime.deepseekProxyEnabled && runtime.deepseekProxyUrl) || apiKey.trim());
 }
 
+export function resolveSupervisorMode(mode: SupervisorMode, apiKey: string): SupervisorMode {
+  if (mode !== 'deepseek') return 'local';
+  return canUseDeepSeekSupervisor(apiKey) ? 'deepseek' : 'local';
+}
+
 export function getSupervisorModeLabel(mode: SupervisorMode, model?: SupervisorModel | null) {
   if (mode === 'deepseek') {
     return model === 'deepseek-reasoner' ? '互動分析模式 · 深入版' : '互動分析模式';

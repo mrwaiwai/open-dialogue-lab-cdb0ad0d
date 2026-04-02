@@ -8,7 +8,7 @@ import ReflectionModal from '@/components/ReflectionModal';
 import ConversationBubble from '@/components/ConversationBubble';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { continueScenarioSessionWithSupervisor, getSupervisorModeLabel } from '@/lib/aiSupervisor';
+import { continueScenarioSessionWithSupervisor, getSupervisorModeLabel, resolveSupervisorMode } from '@/lib/aiSupervisor';
 import {
   SCENARIO_TURNS,
   buildScenarioLens,
@@ -55,6 +55,10 @@ export default function GamePlay() {
     [answers, scenario?.id],
   );
   const scenarioLens = useMemo(() => (scenario ? buildScenarioLens(scenario) : null), [scenario]);
+  const activeSupervisorMode = useMemo(
+    () => resolveSupervisorMode(supervisorMode, deepseekApiKey),
+    [supervisorMode, deepseekApiKey],
+  );
 
   useEffect(() => {
     if (!scenario || currentAnswer) return;
@@ -99,7 +103,7 @@ export default function GamePlay() {
 
     try {
       const result = await continueScenarioSessionWithSupervisor(scenario, session, text, {
-        mode: supervisorMode,
+        mode: activeSupervisorMode,
         deepseekApiKey,
         deepseekModel,
       });
@@ -223,7 +227,7 @@ export default function GamePlay() {
                   <div className="rounded-[1.1rem] bg-white/75 px-4 py-3 text-xs font-semibold text-slate-700">
                     <span className="inline-flex items-center gap-2">
                       <Bot size={14} />
-                      {getSupervisorModeLabel(supervisorMode, deepseekModel)}
+                      {getSupervisorModeLabel(activeSupervisorMode, deepseekModel)}
                     </span>
                   </div>
                 </div>

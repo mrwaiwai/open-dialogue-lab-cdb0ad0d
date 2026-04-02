@@ -11,6 +11,7 @@ import type {
   SupervisorModel,
 } from '@/types/game';
 import { getScenariosByRole } from '@/data/scenarios';
+import { resolveSupervisorMode } from '@/lib/aiSupervisor';
 
 interface GameState {
   selectedRole: GameRole | null;
@@ -146,8 +147,9 @@ export const useGameStore = create<GameState>()(
       },
 
       saveCompletedGame: () => {
-        const { selectedRole, selectedMode, totalScore, answers, reflections, supervisorMode, deepseekModel, practiceSelectionMode } = get();
+        const { selectedRole, selectedMode, totalScore, answers, reflections, supervisorMode, deepseekApiKey, deepseekModel, practiceSelectionMode } = get();
         if (!selectedRole || !selectedMode) return;
+        const activeSupervisorMode = resolveSupervisorMode(supervisorMode, deepseekApiKey);
         const game: CompletedGame = {
           id: crypto.randomUUID(),
           date: new Date().toISOString(),
@@ -157,8 +159,8 @@ export const useGameStore = create<GameState>()(
           maxScore: selectedMode * 10,
           answers,
           reflections,
-          supervisorMode,
-          supervisorModel: supervisorMode === 'deepseek' ? deepseekModel : null,
+          supervisorMode: activeSupervisorMode,
+          supervisorModel: activeSupervisorMode === 'deepseek' ? deepseekModel : null,
           practiceSelectionMode,
         };
         set((state) => ({

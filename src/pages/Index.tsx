@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import FloatingShapes from '@/components/FloatingShapes';
-import { canUseDeepSeekSupervisor } from '@/lib/aiSupervisor';
+import { getSupervisorModeLabel, resolveSupervisorMode } from '@/lib/aiSupervisor';
 import { useGameStore } from '@/store/gameStore';
 
 const stagger = {
@@ -52,7 +52,8 @@ export default function Index() {
   const navigate = useNavigate();
   const supervisorMode = useGameStore((state) => state.supervisorMode);
   const deepseekApiKey = useGameStore((state) => state.deepseekApiKey);
-  const canStart = supervisorMode === 'local' || canUseDeepSeekSupervisor(deepseekApiKey);
+  const activeSupervisorMode = resolveSupervisorMode(supervisorMode, deepseekApiKey);
+  const isUsingFallbackMode = activeSupervisorMode !== supervisorMode;
 
   return (
     <div className="gradient-bg relative overflow-hidden">
@@ -80,9 +81,11 @@ export default function Index() {
             </motion.div>
 
             <motion.div variants={fadeUp} className="mb-8 flex flex-col items-center gap-3">
-              {!canStart && (
-                <p className="text-sm text-amber-800">目前系統未完成啟動，所以暫時未能開始訓練。</p>
-              )}
+              {isUsingFallbackMode ? (
+                <p className="max-w-2xl text-sm text-amber-800">
+                  目前網站以 {getSupervisorModeLabel(activeSupervisorMode)} 運作，你仍然可以正常開始訓練；較進階的 AI 互動分析會在支援伺服器版本啟用。
+                </p>
+              ) : null}
             </motion.div>
 
             <motion.div variants={fadeUp} className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -98,13 +101,11 @@ export default function Index() {
             <motion.div variants={fadeUp}>
               <button
                 onClick={() => navigate('/role')}
-                disabled={!canStart}
                 className="glass-button px-10 py-4 text-lg font-bold shadow-glass hover:shadow-glass-hover animate-glow"
                 style={{
                   background: 'linear-gradient(135deg, hsl(211 100% 50% / 0.9), hsl(270 80% 60% / 0.9))',
                   color: 'white',
                   borderRadius: '1rem',
-                  opacity: canStart ? 1 : 0.6,
                 }}
               >
                 開始進行開放式回應訓練

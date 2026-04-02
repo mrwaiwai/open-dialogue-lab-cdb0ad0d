@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { useGameStore } from '@/store/gameStore';
 import FloatingShapes from '@/components/FloatingShapes';
 import ScenarioReviewCard from '@/components/ScenarioReviewCard';
-import { getSupervisorModeLabel } from '@/lib/aiSupervisor';
+import { getSupervisorModeLabel, resolveSupervisorMode } from '@/lib/aiSupervisor';
 import { buildSessionRecommendations, summarizeSignals } from '@/lib/conversationEngine';
 
 const roleLabels = { teacher: '🎓 教師', parent: '🏠 家長', coach: '⚽ 教練' } as const;
@@ -46,11 +46,16 @@ export default function Results() {
     saveCompletedGame,
     resetGame,
     supervisorMode,
+    deepseekApiKey,
     deepseekModel,
     practiceSelectionMode,
   } =
     useGameStore();
   const [saved, setSaved] = useState(false);
+  const activeSupervisorMode = useMemo(
+    () => resolveSupervisorMode(supervisorMode, deepseekApiKey),
+    [supervisorMode, deepseekApiKey],
+  );
 
   const maxScore = (selectedMode ?? 10) * 10;
   const grade = getGrade(totalScore, maxScore);
@@ -134,7 +139,7 @@ export default function Results() {
                     <span className="glass-pill text-xs">{selectedMode} 個場景</span>
                     <span className="glass-pill text-xs">多輪 chat 訓練</span>
                     <span className="glass-pill text-xs">{practiceSelectionMode === 'custom' ? '自選題目' : '隨機抽題'}</span>
-                    <span className="glass-pill text-xs">{getSupervisorModeLabel(supervisorMode, deepseekModel)}</span>
+                    <span className="glass-pill text-xs">{getSupervisorModeLabel(activeSupervisorMode, deepseekModel)}</span>
                   </div>
 
                   <p className="section-kicker mt-5">對話訓練完成</p>
