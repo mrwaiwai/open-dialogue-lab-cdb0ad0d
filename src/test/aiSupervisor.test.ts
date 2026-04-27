@@ -126,7 +126,7 @@ describe('aiSupervisor', () => {
   });
 
   it('returns readable supervisor labels', () => {
-    expect(getSupervisorModeLabel('local')).toBe('本地規則督導');
-    expect(getSupervisorModeLabel('deepseek', 'deepseek-reasoner')).toContain('推理模式');
+    expect(getSupervisorModeLabel('local')).toBe('基本分析模式');
+    expect(getSupervisorModeLabel('deepseek', 'deepseek-v4-flash')).toContain('V4 Flash');
   });
 });

@@ -131,7 +131,7 @@ export function resolveSupervisorMode(mode: SupervisorMode, apiKey: string): Sup
 
 export function getSupervisorModeLabel(mode: SupervisorMode, model?: SupervisorModel | null) {
   if (mode === 'deepseek') {
-    return model === 'deepseek-reasoner' ? '互動分析模式 · 深入版' : '互動分析模式';
+    return model === 'deepseek-v4-flash' ? '互動分析模式 · V4 Flash' : '互動分析模式';
   }
 
   return '基本分析模式';
@@ -382,7 +382,7 @@ export async function continueScenarioSessionWithSupervisor(
       { role: 'user', content: buildUserPrompt(scenario, lens, session, responseText.trim(), options.deepseekModel) },
     ],
     response_format: { type: 'json_object' },
-    temperature: options.deepseekModel === 'deepseek-reasoner' ? 0.45 : 0.72,
+    temperature: 0.72,
     max_tokens: 1800,
     stream: false,
   };

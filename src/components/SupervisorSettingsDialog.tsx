@@ -30,8 +30,7 @@ const modeCards: { mode: SupervisorMode; title: string; desc: string; icon: type
 ];
 
 const models: { model: SupervisorModel; title: string; desc: string }[] = [
-  { model: 'deepseek-chat', title: '標準分析', desc: '速度較快，適合日常多輪互動訓練。' },
-  { model: 'deepseek-reasoner', title: '深入分析', desc: '分析更深，但速度較慢。' },
+  { model: 'deepseek-v4-flash', title: 'DeepSeek V4 Flash', desc: '官方新一代快速模型，回應較快，亦係目前 app 的預設分析模型。' },
 ];
 
 export default function SupervisorSettingsDialog() {

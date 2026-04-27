@@ -25,6 +25,26 @@ const typeLabels = {
   closed: '封閉式',
 } as const;
 
+function parseSentenceBreakdown(text: string) {
+  return text
+    .split(/\n\s*\n/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+    .map((block) => {
+      const lines = block.split('\n').map((line) => line.trim()).filter(Boolean);
+      const title = lines[0] ?? '';
+      const insightLine = lines.find((line) => /^(亮點|問題|可再打開)：/.test(line)) ?? '';
+      const rewriteLine = lines.find((line) => line.startsWith('可改成：')) ?? '';
+
+      return {
+        title,
+        insightLabel: insightLine.split('：')[0] ?? '',
+        insightText: insightLine.split('：').slice(1).join('：').trim(),
+        rewrite: rewriteLine.replace(/^可改成：/, '').trim(),
+      };
+    });
+}
+
 export default function GamePlay() {
   const navigate = useNavigate();
   const {
@@ -73,14 +93,30 @@ export default function GamePlay() {
     () => currentAnswer?.transcript ?? session?.transcript ?? [],
     [currentAnswer?.transcript, session?.transcript],
   );
+  const visibleConversation = useMemo(
+    () => conversation.filter((message) => message.speaker !== 'analysis'),
+    [conversation],
+  );
+  const analysisMessages = useMemo(
+    () => conversation.filter((message) => message.speaker === 'analysis'),
+    [conversation],
+  );
   const currentTurn = currentAnswer?.turnCount ?? session?.currentTurn ?? 0;
   const starterPrompts = currentAnswer ? [] : getTurnStarterPrompts(session?.currentTurn ?? 0);
+  const latestCoachSummary = analysisMessages.findLast((message) => message.label === '教練即時分析');
+  const latestSentenceBreakdown = analysisMessages.findLast((message) => message.label === '逐句拆解');
+  const latestRewrite = analysisMessages.findLast((message) => message.label === '可改成咁講');
+  const sentenceBreakdownBlocks = useMemo(
+    () => (latestSentenceBreakdown ? parseSentenceBreakdown(latestSentenceBreakdown.text) : []),
+    [latestSentenceBreakdown],
+  );
+  const turnSnapshots = currentAnswer?.turnAnalyses ?? session?.turnAnalyses ?? [];
 
   useEffect(() => {
     const viewport = transcriptRef.current;
     if (!viewport) return;
     viewport.scrollTo({ top: viewport.scrollHeight, behavior: 'smooth' });
-  }, [conversation]);
+  }, [visibleConversation]);
 
   if (!selectedRole || !selectedMode || selectedScenarios.length === 0) {
     navigate('/');
@@ -187,7 +223,13 @@ export default function GamePlay() {
           </label>
         </div>
 
-        <div className={`grid gap-5 ${showExpandedDetails ? 'lg:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] lg:items-start xl:gap-6' : ''}`}>
+        <div
+          className={`grid gap-5 ${
+            showExpandedDetails
+              ? 'lg:grid-cols-[minmax(320px,360px)_minmax(0,1fr)] lg:items-start xl:gap-6'
+              : 'xl:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] xl:items-start'
+          }`}
+        >
         <section className="order-1 glass-card flex min-h-[68vh] flex-col overflow-hidden lg:order-2 lg:min-h-[78vh]">
           <div className="border-b border-white/35 px-4 py-4 sm:px-5 sm:py-5 lg:px-6">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -250,7 +292,7 @@ export default function GamePlay() {
 
           <div ref={transcriptRef} className="chat-scroll flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 lg:min-h-[52vh] lg:px-6">
             <div className="space-y-4">
-              {conversation.map((message) => (
+              {visibleConversation.map((message) => (
                 <ConversationBubble key={message.id} message={message} expanded={showExpandedDetails} />
               ))}
             </div>
@@ -391,6 +433,98 @@ export default function GamePlay() {
             )}
           </div>
         </section>
+
+        {!showExpandedDetails ? (
+          <aside className="order-2 space-y-4 xl:sticky xl:top-24">
+            <div className="glass-card p-5 sm:p-6">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="section-kicker">回合筆記</p>
+                  <h3 className="mt-2 text-xl font-bold">分析放側邊，主對話留返順住行</h3>
+                </div>
+                <span className="glass-pill text-xs">低干擾模式</span>
+              </div>
+
+              {latestCoachSummary ? (
+                <div className="mt-4 space-y-4">
+                  <div className="analysis-card-summary">
+                    <p className="analysis-card-kicker">教練即時分析</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-800">
+                      {latestCoachSummary.text.split(/\n\s*\n/)[0]}
+                    </p>
+                  </div>
+
+                  <div className="analysis-card-hint">
+                    <p className="analysis-card-kicker">下輪最值得做</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-800">
+                      {latestCoachSummary.text.split(/\n\s*\n/)[1]?.replace(/^這輪建議：/, '')}
+                    </p>
+                  </div>
+
+                  <details className="nested-panel overflow-hidden px-4 py-4">
+                    <summary className="flex cursor-pointer items-center justify-between gap-3">
+                      <div>
+                        <p className="section-kicker">逐句拆解</p>
+                        <p className="mt-1 text-sm font-medium text-slate-800">
+                          已整理 {sentenceBreakdownBlocks.length} 句亮點與問題
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-slate-600">點擊展開</span>
+                    </summary>
+
+                    <div className="mt-4 space-y-3">
+                      {sentenceBreakdownBlocks.map((block) => (
+                        <div key={block.title} className="rounded-2xl bg-white/75 px-4 py-4">
+                          <p className="analysis-card-kicker">{block.title}</p>
+                          <p className="mt-2 text-sm font-semibold text-slate-900">{block.insightLabel}</p>
+                          <p className="mt-2 text-sm leading-relaxed text-slate-700">{block.insightText}</p>
+                          {block.rewrite ? (
+                            <div className="analysis-sentence-rewrite">
+                              <p className="analysis-card-kicker text-sky-800/80">可改成咁講</p>
+                              <p className="mt-2 text-sm leading-relaxed text-sky-950">{block.rewrite}</p>
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+
+                  {latestRewrite ? (
+                    <div className="analysis-card-rewrite">
+                      <p className="analysis-card-kicker">可改成咁講</p>
+                      <p className="mt-3 text-sm leading-relaxed text-slate-900">「{latestRewrite.text}」</p>
+                    </div>
+                  ) : null}
+
+                  {turnSnapshots.length > 0 ? (
+                    <div className="nested-panel px-4 py-4">
+                      <p className="section-kicker">進度回看</p>
+                      <div className="mt-3 space-y-2">
+                        {turnSnapshots.map((turn) => (
+                          <div key={turn.turn} className="flex items-center justify-between gap-3 rounded-2xl bg-white/72 px-3 py-3 text-sm">
+                            <div>
+                              <p className="font-semibold">第 {turn.turn} 輪</p>
+                              <p className="text-xs text-muted-foreground">{typeLabels[turn.type]}</p>
+                            </div>
+                            <span className="rounded-full bg-slate-900/90 px-3 py-1 text-xs font-semibold text-white">
+                              {turn.score}/10
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="mt-4 nested-panel px-4 py-4">
+                  <p className="text-sm leading-relaxed text-slate-700">
+                    每送出一輪後，教練即時分析、下輪建議、逐句拆解同可改寫版本都會整理喺呢邊，唔會直接插入聊天中間。
+                  </p>
+                </div>
+              )}
+            </div>
+          </aside>
+        ) : null}
 
         {showExpandedDetails ? (
           <aside className="order-2 space-y-4 lg:order-1 lg:sticky lg:top-24">

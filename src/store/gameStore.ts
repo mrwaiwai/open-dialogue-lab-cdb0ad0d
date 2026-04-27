@@ -82,7 +82,7 @@ export const useGameStore = create<GameState>()(
       reflections: [],
       supervisorMode: 'deepseek',
       deepseekApiKey: defaultDeepseekApiKey,
-      deepseekModel: 'deepseek-chat',
+      deepseekModel: 'deepseek-v4-flash',
 
       selectRole: (role) =>
         set({
@@ -180,7 +180,7 @@ export const useGameStore = create<GameState>()(
           ...currentState,
           ...persisted,
           supervisorMode: 'deepseek',
-          deepseekModel: 'deepseek-chat',
+          deepseekModel: 'deepseek-v4-flash',
           deepseekApiKey: persistedApiKey || currentState.deepseekApiKey,
         };
       },

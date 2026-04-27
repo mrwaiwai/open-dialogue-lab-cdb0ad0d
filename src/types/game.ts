@@ -24,7 +24,7 @@ export interface Option {
 export type ResponseType = 'closed' | 'judgmental' | 'semi-open' | 'open';
 export type MessageSpeaker = 'guide' | 'scene' | 'child' | 'user' | 'analysis';
 export type SupervisorMode = 'local' | 'deepseek';
-export type SupervisorModel = 'deepseek-chat' | 'deepseek-reasoner';
+export type SupervisorModel = 'deepseek-v4-flash';
 export type PracticeSelectionMode = 'random' | 'custom';
 
 export interface ConversationMessage {
