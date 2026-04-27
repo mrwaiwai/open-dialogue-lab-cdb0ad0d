@@ -13,7 +13,7 @@ import {
   SCENARIO_TURNS,
   buildScenarioLens,
   createScenarioSession,
-  getTurnStarterPrompts,
+  getRolePartnerLabel,
 } from '@/lib/conversationEngine';
 import type { ScenarioSession } from '@/types/game';
 
@@ -79,6 +79,7 @@ export default function GamePlay() {
     () => resolveSupervisorMode(supervisorMode, deepseekApiKey),
     [supervisorMode, deepseekApiKey],
   );
+  const dialoguePartnerLabel = useMemo(() => getRolePartnerLabel(selectedRole), [selectedRole]);
 
   useEffect(() => {
     if (!scenario || currentAnswer) return;
@@ -102,7 +103,6 @@ export default function GamePlay() {
     [conversation],
   );
   const currentTurn = currentAnswer?.turnCount ?? session?.currentTurn ?? 0;
-  const starterPrompts = currentAnswer ? [] : getTurnStarterPrompts(session?.currentTurn ?? 0);
   const latestCoachSummary = analysisMessages.findLast((message) => message.label === '教練即時分析');
   const latestSentenceBreakdown = analysisMessages.findLast((message) => message.label === '逐句拆解');
   const latestRewrite = analysisMessages.findLast((message) => message.label === '可改成咁講');
@@ -244,10 +244,10 @@ export default function GamePlay() {
                 <div className="xl:hidden">
                   <p className="section-kicker">場景速讀</p>
                   <h2 className="mt-2 text-2xl font-bold leading-tight">{scenario.title}</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{scenario.description}</p>
+                  <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-muted-foreground sm:line-clamp-none">{scenario.description}</p>
                 </div>
 
-                <div>
+                <div className="hidden sm:block">
                   <p className="text-sm font-semibold">Chat Dialogue Lab</p>
                   <p className="mt-1 max-w-2xl text-sm leading-relaxed text-muted-foreground">
                     {currentAnswer
@@ -257,26 +257,34 @@ export default function GamePlay() {
                 </div>
               </div>
 
-              {currentAnswer ? (
-                <div className="rounded-[1.1rem] bg-emerald-500/12 px-4 py-3 text-sm font-semibold text-emerald-800">
-                  最終判讀：{typeLabels[currentAnswer.type]} · {currentAnswer.score}/10 分
+              <div className="space-y-2 xl:min-w-[220px]">
+                <div className="rounded-[1.1rem] border border-sky-200/70 bg-sky-50/80 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-sky-700">對話對象</p>
+                  <p className="mt-1 text-sm font-semibold text-sky-950">你而家正同{dialoguePartnerLabel}對話</p>
+                  <p className="mt-1 text-xs leading-relaxed text-sky-800/80">場景：{scenario.title}</p>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="rounded-[1.1rem] bg-slate-900 px-4 py-3 text-sm font-semibold text-white">
-                    目前重點：{scenarioLens.turnGoals[currentTurn]?.title}
+
+                {currentAnswer ? (
+                  <div className="rounded-[1.1rem] bg-emerald-500/12 px-4 py-3 text-sm font-semibold text-emerald-800">
+                    最終判讀：{typeLabels[currentAnswer.type]} · {currentAnswer.score}/10 分
                   </div>
-                  <div className="rounded-[1.1rem] bg-white/75 px-4 py-3 text-xs font-semibold text-slate-700">
-                    <span className="inline-flex items-center gap-2">
-                      <Bot size={14} />
-                      {getSupervisorModeLabel(activeSupervisorMode, deepseekModel)}
-                    </span>
-                  </div>
-                </div>
-              )}
+                ) : (
+                  <>
+                    <div className="rounded-[1.1rem] bg-slate-900 px-4 py-3 text-sm font-semibold text-white">
+                      目前重點：{scenarioLens.turnGoals[currentTurn]?.title}
+                    </div>
+                    <div className="rounded-[1.1rem] bg-white/75 px-4 py-3 text-xs font-semibold text-slate-700">
+                      <span className="inline-flex items-center gap-2">
+                        <Bot size={14} />
+                        {getSupervisorModeLabel(activeSupervisorMode, deepseekModel)}
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:hidden">
+            <div className="mt-4 hidden gap-3 md:grid md:grid-cols-2 xl:hidden">
               <div className="nested-panel px-4 py-3">
                 <p className="section-kicker">隱藏需要提示</p>
                 <p className="mt-2 text-sm leading-relaxed">{scenarioLens.caseBrief.hiddenNeed}</p>
@@ -301,28 +309,12 @@ export default function GamePlay() {
           <div className="border-t border-white/35 bg-white/45 px-4 py-4 sm:px-5 lg:px-6">
             {!currentAnswer ? (
               <div className="space-y-4">
-                <div className="grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                <div className="grid gap-3">
                   <div className="rounded-[1.5rem] border border-sky-200/70 bg-sky-50/80 p-4">
                     <p className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-sky-700">教練雷達</p>
                     <p className="text-sm leading-relaxed text-sky-950">
                       {session?.latestCoachHint ?? scenarioLens.turnGoals[currentTurn]?.description}
                     </p>
-                  </div>
-
-                  <div className="nested-panel px-4 py-4">
-                    <p className="section-kicker">快速起手式</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {starterPrompts.map((prompt) => (
-                        <button
-                          key={prompt}
-                          onClick={() => setDraft((current) => (current ? `${current}\n${prompt}` : prompt))}
-                          disabled={isSubmitting}
-                          className="rounded-full border border-white/60 bg-white/75 px-3 py-1.5 text-xs font-medium transition hover:bg-white"
-                        >
-                          {prompt}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 </div>
 
@@ -436,7 +428,49 @@ export default function GamePlay() {
 
         {!showExpandedDetails ? (
           <aside className="order-2 space-y-4 xl:sticky xl:top-24">
-            <div className="glass-card p-5 sm:p-6">
+            <details className="glass-card p-5 sm:p-6 xl:hidden">
+              <summary className="flex cursor-pointer items-center justify-between gap-3">
+                <div>
+                  <p className="section-kicker">回合筆記</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-900">查看分析、逐句拆解同改寫建議</p>
+                </div>
+                <span className="glass-pill text-xs">展開</span>
+              </summary>
+
+              {latestCoachSummary ? (
+                <div className="mt-4 space-y-4">
+                  <div className="analysis-card-summary">
+                    <p className="analysis-card-kicker">教練即時分析</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-800">
+                      {latestCoachSummary.text.split(/\n\s*\n/)[0]}
+                    </p>
+                  </div>
+
+                  <div className="analysis-card-hint">
+                    <p className="analysis-card-kicker">下輪最值得做</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-800">
+                      {latestCoachSummary.text.split(/\n\s*\n/)[1]?.replace(/^這輪建議：/, '')}
+                    </p>
+                  </div>
+
+                  {latestRewrite ? (
+                    <div className="analysis-card-rewrite">
+                      <p className="analysis-card-kicker">可改成咁講</p>
+                      <p className="mt-3 text-sm leading-relaxed text-slate-900">「{latestRewrite.text}」</p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="mt-4 nested-panel px-4 py-4">
+                  <p className="text-sm leading-relaxed text-slate-700">
+                    每送出一輪後，教練即時分析、下輪建議同改寫版本都會整理喺呢邊。
+                  </p>
+                </div>
+              )}
+            </details>
+
+            <div className="hidden xl:block">
+              <div className="glass-card p-5 sm:p-6">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="section-kicker">回合筆記</p>
@@ -522,6 +556,7 @@ export default function GamePlay() {
                   </p>
                 </div>
               )}
+              </div>
             </div>
           </aside>
         ) : null}
