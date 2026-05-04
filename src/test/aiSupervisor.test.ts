@@ -127,6 +127,6 @@ describe('aiSupervisor', () => {
 
   it('returns readable supervisor labels', () => {
     expect(getSupervisorModeLabel('local')).toBe('基本分析模式');
-    expect(getSupervisorModeLabel('deepseek', 'deepseek-v4-flash')).toContain('V4 Flash');
+    expect(getSupervisorModeLabel('deepseek', 'deepseek-v4-flash')).toBe('互動分析模式');
   });
 });

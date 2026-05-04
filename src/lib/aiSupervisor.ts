@@ -131,7 +131,7 @@ export function resolveSupervisorMode(mode: SupervisorMode, apiKey: string): Sup
 
 export function getSupervisorModeLabel(mode: SupervisorMode, model?: SupervisorModel | null) {
   if (mode === 'deepseek') {
-    return model === 'deepseek-v4-flash' ? '互動分析模式 · V4 Flash' : '互動分析模式';
+    return '互動分析模式';
   }
 
   return '基本分析模式';
